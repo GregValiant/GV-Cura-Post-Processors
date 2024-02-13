@@ -1,4 +1,4 @@
-# By GregValiant (Greg FOresi) September 2023
+# By GregValiant (Greg Foresi) September 2023
 # This post will alter gcode and change it from a Multi-extruder print to a single extruder print with manual tool changes.
 
 from ..Script import Script
