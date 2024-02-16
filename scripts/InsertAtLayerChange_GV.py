@@ -124,30 +124,24 @@ class InsertAtLayerChange_GV(Script):
                 raise Exception("Error.  Insert changed to Once Only.")
 
 #Single insertion
-        index = -1        
         if when_to_insert == "once_only":
             if Application.getInstance().getGlobalContainerStack().getProperty("print_sequence", "value") == "all_at_once":
                 for index, layer in enumerate(data):
-                    index += 1
-                    lines = layer.split("\n")
-                    for l_index, line in enumerate(lines):
-                        if ";LAYER:" in line:
-                            layer_number = int(line.split(":")[1])
-                            if layer_number == int(the_search_layer):
-                                lines.insert(1,gcode_to_add[0:-1])
-                                data[index] = "\n".join(lines)
-                                break
+                    if ";LAYER:" + str(the_search_layer) + "\n" in layer:
+                        lines = layer.split("\n")
+                        lines.insert(1,gcode_to_add[0:-1])
+                        data[index] = "\n".join(lines)
+                        return data
+
             else:
-                layer_num = -1                    
                 for index, layer in enumerate(data):
-                    if ";LAYER:" in layer:
-                        layer_num += 1
-                        if layer_num == the_search_layer:
-                            lines = layer.split("\n")
-                            lines.insert(1,gcode_to_add[0:-1])
-                            data[index] = "\n".join(lines)
-                            return data
-            
+                    if ";LAYER:" + str(the_search_layer) + "\n" in layer:
+                        lines = layer.split("\n")
+                        lines.insert(1,gcode_to_add[0:-1])
+                        data[index] = "\n".join(lines)
+                        continue
+                return data
+
 #Multiple insertions
         if when_to_insert != "once_only":
             for index, layer in enumerate(data):
