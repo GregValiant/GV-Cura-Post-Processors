@@ -1373,61 +1373,6 @@ class LittleUtilities_GV(Script):
     # Write your own custom script
     def _custom_script(self, data:str)->str:
         ## Display a message-----------------------------------------------
-        object_name_list = []
-        object_location_x_list = []
-        object_location_y_list = []
-        start_x = 0.0
-        start_y = 0.0
-        name_in_list = False
-        for num in range(2,len(data)-1, 1):
-            lines = data[num].split("\n")
-            for index, line in enumerate(lines):
-                if ";MESH:" in line and "." in line:
-                    t1 = line.split(":")[1]
-                    name_in_list = False
-                    for qqq in range(0,len(object_name_list)):
-                        if t1 in object_name_list[qqq]:
-                            name_in_list = True
-                            break
-                    if not name_in_list:
-                        new_index = index + 1
-                        while not " X" in lines[new_index] and not " Y" in lines[new_index]:
-                            new_index += 1
-                        t2 = self.getValue(lines[new_index], "X")
-                        t3 = self.getValue(lines[new_index], "Y")
-                        t4 = (t1,t2,t3)
-                        object_name_list.append(t4)
-                        #object_location_x_list.append(self.getValue(lines[new_index], "X"))
-                        #object_location_y_list.append(self.getValue(lines[new_index], "Y"))
-                        break
-        #for num in range(0, len(object_name_list) - 1,1):
-            #object_name_list[num] = f"({object_name_list[num]}, {object_location_x_list[num]}, {object_location_y_list[num]})"
-        sorted_list = sorted(object_name_list, key=itemgetter(2))
-        sorted_two = sorted(sorted_list, key=itemgetter(1))
-        new_data = []
-        print_lst = []
-        start_index = 0
-        end_index = 0
-        for num in range(2,len(data),1):
-            if ";LAYER:0" in data[num] or ";LAYER:-" in data[num]:
-                
-                start_index = num
-                break
-        for num in range(start_index,len(data) - 1, 1):        
-            while not ";LAYER:0" in data[num + 1] and not ";LAYER:-" in data[num + 1]:
-                new_data.append(data[num].pop)
-                end_index = num
-                
-        
-        for num in range(2,len(data),1):
-        new_data.append(data[0])
-        new_data.append(data[1])
-        for n_num in sorted_two:
-            mesh_name = sorted_two[n_num][0]
-            for num in range(2,len(data)-1):
-                layer = data[num]            
-                if mesh_name in layer:
-                    new_data.append(data[num].pop)
-                    break
-        data = new_data
+        setting_string = self.getSettingValueByKey("custom_setting")
+        Message(title = "[Little Utilities - Custom Script]", text = "Open LittleUtilities.py in a text editor, scroll down to the bottom, and write your own custom post processor.  Currently the script just shows this message and " + setting_string).show()
         return
