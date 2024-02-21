@@ -1,6 +1,6 @@
 #  Revision by GregValiant 1-1-2024
 #  "Pause at Height" is obsolete as it didn't work with Z-hops enabled or with adaptive Layers.
-#  Added 'Unload', 'Reload', and 'Purge' options and removed the confusing 'Retraction' option.
+#  Added 'Unload', 'Reload', and 'Purge' options and removed the confusing 'Retraction' option.  Whether to prime after pausing is included.
 #  Added 'Reason for Pause' option.  When 'Filament Change' is chosen then Unload, Reload, and Purge become available.  If 'All Others' reasons is chosen then those options aren't required.
 
 from ..Script import Script
@@ -101,7 +101,7 @@ class PauseAtLayer_GV(Script):
                 "reload_amount":
                 {
                     "label": "     Reload Amount",
-                    "description": "The length of filament to load before the purge.  80% of this distance will be fast and the final 20% at the purge speed.  If you prefer to reload up to the nozzle by hand then set this to '0'.",
+                    "description": "The length of filament to load before the purge.  90% of this distance will be fast and the final 10% at the purge speed.  If you prefer to reload up to the nozzle by hand then set this to '0'.",
                     "unit": "mm   ",
                     "type": "int",
                     "value": 370,
@@ -668,19 +668,19 @@ class PauseAtLayer_GV(Script):
                     ## Load and Purge.  Break the load amount in 150mm chunks to avoid 'too long of extrusion' warnings from firmware.
                     if reason_for_pause == "reason_filament":
                         if int(reload_amount) > 0:
-                            if reload_amount * .8 > 150:
-                                temp_reload = reload_amount - reload_amount * .2
+                            if reload_amount * .9 > 150:
+                                temp_reload = reload_amount - reload_amount * .1
                                 while temp_reload > 150:
                                     prepend_gcode += self.putValue(G = 1, E = 150, F = unload_reload_speed) + "; Fast Reload\n"
                                     temp_reload -= 150
                                 if 0 < temp_reload <= 150:
                                     prepend_gcode += self.putValue(G = 1, E = round(temp_reload), F = round(int(unload_reload_speed))) + "; Fast Reload\n"
-                                    prepend_gcode += self.putValue(G = 1, E = round(reload_amount * .2), F = round(float(nozzle_size) * 16.666 * 60)) + "; Reload the remaining 20% slow to avoid ramming the nozzle\n"
+                                    prepend_gcode += self.putValue(G = 1, E = round(reload_amount * .1), F = round(float(nozzle_size) * 16.666 * 60)) + "; Reload the remaining 10% slow to avoid ramming the nozzle\n"
                                 else:
-                                    prepend_gcode += self.putValue(G = 1, E = round(reload_amount * .2), F = round(float(nozzle_size) * 16.666 * 60)) + "; Reload the remaining 20% slow to avoid ramming the nozzle\n"
+                                    prepend_gcode += self.putValue(G = 1, E = round(reload_amount * .1), F = round(float(nozzle_size) * 16.666 * 60)) + "; Reload the remaining 10% slow to avoid ramming the nozzle\n"
                             else:
-                                prepend_gcode += self.putValue(G = 1, E = round(reload_amount * .8), F = round(int(unload_reload_speed))) + "; Fast Reload\n"
-                                prepend_gcode += self.putValue(G = 1, E = round(reload_amount * .2), F = round(float(nozzle_size) * 16.666 * 60)) + "; Reload the last 20% slower to avoid ramming the nozzle\n"
+                                prepend_gcode += self.putValue(G = 1, E = round(reload_amount * .9), F = round(int(unload_reload_speed))) + "; Fast Reload\n"
+                                prepend_gcode += self.putValue(G = 1, E = round(reload_amount * .1), F = round(float(nozzle_size) * 16.666 * 60)) + "; Reload the last 10% slower to avoid ramming the nozzle\n"
                         if int(purge_amount) > 0:
                             prepend_gcode += self.putValue(G = 1, E = purge_amount, F = round(float(nozzle_size) * 8.333 * 60)) + "; Purge\n"
                             if not firmware_retract:
