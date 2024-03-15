@@ -3,4 +3,4 @@ A couple of these have been included in Cura.  Others like "Add Cura Settings" w
 
 You can download them and put them in the "scripts" sub-folder in your "Configuration Folder".  They will be available with the other post processors under "Extensions".
 
-The "AAA_Post Processor ReadMe_GV.pdf" and "AAA_PostProcessReadMe_GV.py" file both need to be added.  The "py" file will show up in the list of post processors and will open the PDF file.  It contains some descriptions and instructions for these post processors as well as some help for Cura's native post processors.
+The "AAA_Post Processor ReadMe_GV.pdf" and "AAA_PostProcessReadMe_GV.py" work together and both need to be added for them to work.  The "py" file will show up in the list of post processors and when it is active it will open the PDF file.  The PDF contains some descriptions and instructions for these post processors as well as some help for Cura's native post processors.
