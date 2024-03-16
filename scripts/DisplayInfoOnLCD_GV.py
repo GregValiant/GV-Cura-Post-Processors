@@ -427,30 +427,33 @@ class DisplayInfoOnLCD_GV(Script):
                                         time_list[qnum] = str(float(this_time) - float(time_list[qnum])) + "P"
                                     pause_index = num-1
                                     break
-
+                
                 ## Make the adjustments to the M117 (and M118) lines that are prior to a pause
                 for num in range (2, len(data) - 1,1):
                     layer = data[num]
                     lines = layer.split("\n")
                     for line in lines:
-                        if line.startswith("M117") and "|" in line and "P" in time_list[num]:
-                            M117_line = line.split("|")[0] + "| TP "
-                            alt_time = time_list[num][:-1]
-                            hhh = int(float(alt_time) / 3600)
-                            if hhh > 0:
-                                hhr = str(hhh) + "h"
-                            else:
-                                hhr = ""
-                            mmm = ((float(alt_time) / 3600) - (int(float(alt_time) / 3600))) * 60
-                            sss = int((mmm - int(mmm)) * 60)
-                            mmm = str(round(mmm)) + "m"
-                            time_to_go = str(hhr) + str(mmm)
-                            if hhr == "": time_to_go = time_to_go + str(sss) + "s"
-                            M117_line = M117_line + time_to_go
-                            layer = layer.replace(line, M117_line)
-                        if line.startswith("M118") and "|" in line and "P" in time_list[num]:
-                            M118_line = line.split("|")[0] + "| TP " + time_to_go
-                            layer = layer.replace(line, M118_line)
+                        try:
+                            if line.startswith("M117") and "|" in line and "P" in time_list[num]:
+                                M117_line = line.split("|")[0] + "| TP "
+                                alt_time = time_list[num][:-1]
+                                hhh = int(float(alt_time) / 3600)
+                                if hhh > 0:
+                                    hhr = str(hhh) + "h"
+                                else:
+                                    hhr = ""
+                                mmm = ((float(alt_time) / 3600) - (int(float(alt_time) / 3600))) * 60
+                                sss = int((mmm - int(mmm)) * 60)
+                                mmm = str(round(mmm)) + "m"
+                                time_to_go = str(hhr) + str(mmm)
+                                if hhr == "": time_to_go = time_to_go + str(sss) + "s"
+                                M117_line = M117_line + time_to_go
+                                layer = layer.replace(line, M117_line)
+                            if line.startswith("M118") and "|" in line and "P" in time_list[num]:
+                                M118_line = line.split("|")[0] + "| TP " + time_to_go
+                                layer = layer.replace(line, M118_line)
+                        except:
+                            continue
                     data[num] = layer
 
             setting_data = ""
