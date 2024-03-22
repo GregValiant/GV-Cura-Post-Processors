@@ -1,6 +1,6 @@
 #  Revision by GregValiant 1-1-2024
 #  "Pause at Height" is obsolete as it didn't work with Z-hops enabled or with adaptive Layers.
-#  Added 'Unload', 'Reload', and 'Purge' options and removed the confusing 'Retraction' option.  Whether to prime after pausing is included.
+#  Added 'Unload', 'Reload', and 'Purge' options and removed the confusing 'Retraction' option.
 #  Added 'Reason for Pause' option.  When 'Filament Change' is chosen then Unload, Reload, and Purge become available.  If 'All Others' reasons is chosen then those options aren't required.
 
 from ..Script import Script
@@ -130,8 +130,8 @@ class PauseAtLayer_GV(Script):
                 },
                 "hold_steppers_on":
                 {
-                    "label": "Keep motors engaged",
-                    "description": "Keep the steppers engaged so they don't lose position.  If this is unchecked then the Stepper Disarm time will be the default disarm time within the printer (often 2 minutes).",
+                    "label": "Keep steppers engaged",
+                    "description": "Keep the stepper motor engaged so they don't lose position.  If this is unchecked then the 'Steppers off after' time will be whatever the default disarm time in the printer firmware is (often 2 minutes).",
                     "type": "bool",
                     "default_value": true,
                     "enabled": "pause_method != 'griffin'"
@@ -219,7 +219,7 @@ class PauseAtLayer_GV(Script):
                     "options": {
                         "m109_cmd": "M109",
                         "m104_cmd": "M104"},
-                    "default_value": "m109_cmd",
+                    "default_value": "m104_cmd",
                     "enabled": "pause_method not in ['griffin', 'repetier'] and not tool_temp_overide"
                 },
                 "resume_print_temperature":
