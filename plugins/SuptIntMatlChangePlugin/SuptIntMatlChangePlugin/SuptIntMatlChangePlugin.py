@@ -190,17 +190,19 @@ class SuptIntMatlChangePlugin(Extension):
         self._settings_dict["park_x"] = {
             "label": "        Park X",
             "description": "The X location to park the head for all pauses.",
-            "type": "float",
+            "type": "int",
             "default_value": 0,
-            "maximum_value": "machine_width",
+            "maximum_value": "machine_width/2 if 'machine_center_is_0' else machine_width",
+            "minimum_value": "machine_width/-2 if 'machine_center_is_0' else 0",
             "enabled": "suptintmatlchange_enable and park_head and support_enable and extruders_enabled_count == 1 and print_sequence == 'all_at_once'"
         }
         self._settings_dict["park_y"] = {
             "label": "        Park Y",
             "description": "The Y location to park the head for all pauses.",
-            "type": "float",
+            "type": "int",
             "default_value": 0,
-            "maximum_value": "machine_depth",
+            "maximum_value": "machine_depth/2 if 'machine_center_is_0' else machine_depth",
+            "minimum_value": "machine_depth/-2 if 'machine_center_is_0' else 0",
             "enabled": "suptintmatlchange_enable and park_head and support_enable and extruders_enabled_count == 1 and print_sequence == 'all_at_once'"
         }
         self._settings_dict["m300_add"] = {
