@@ -28,9 +28,19 @@ class SuptIntMaterialChange_GV(Script):
         extruder = mycura.extruderList
         ext_count = int(mycura.getProperty("machine_extruder_count", "value"))
         machine_width = int(mycura.getProperty("machine_width", "value"))
-        self._instance.setProperty("park_x", "maximum_value", machine_width)
+
         machine_depth = int(mycura.getProperty("machine_depth", "value"))
-        self._instance.setProperty("park_y", "maximum_value", machine_depth)
+        machine_center_is_0 = str(mycura.getProperty("machine_center_is_zero", "value"))
+        if machine_center_is_0 == "True":
+            self._instance.setProperty("park_x_max", "value", int(machine_width/2))
+            self._instance.setProperty("park_y_max", "value", int(machine_depth/2))
+            self._instance.setProperty("park_x_min", "value", int(machine_width/-2))
+            self._instance.setProperty("park_y_min", "value", int(machine_depth/-2))
+        else:
+            self._instance.setProperty("park_x_max", "value", machine_width)
+            self._instance.setProperty("park_y_max", "value", machine_depth)
+            self._instance.setProperty("park_x_min", "value", 0)
+            self._instance.setProperty("park_y_min", "value", 0)
         self._instance.setProperty("model_temp", "value", extruder[0].getProperty("material_print_temperature", "value"))
         self._instance.setProperty("extra_prime_amt", "value", extruder[0].getProperty("retraction_amount", "value"))
         if ext_count > 1:
@@ -97,7 +107,7 @@ class SuptIntMaterialChange_GV(Script):
                     "label": "    Gcode after pause",
                     "description": "Some printers require a buffer after the pause when M25 is used. Typically 6 M105's works well.  Delimit multiple commands with a comma EX: M105,M105,M105",
                     "type": "str",
-                    "default_value": "M105,M105,M105,M105,M105,M105",
+                    "default_value": "",
                     "enabled": "pause_method not in ['marlin','marlin2','griffin','g_4']"
                 },
                 "layers_of_interest":
@@ -220,7 +230,8 @@ class SuptIntMaterialChange_GV(Script):
                     "description": "The X location to park the head for all pauses.",
                     "type": "int",
                     "default_value": 0,
-                    "maximum_value": 500,
+                    "maximum_value": "park_x_max",
+                    "minimum_value": "park_x_min",
                     "enabled": "park_head"
                 },
                 "park_y":
@@ -229,8 +240,41 @@ class SuptIntMaterialChange_GV(Script):
                     "description": "The Y location to park the head for all pauses.",
                     "type": "int",
                     "default_value": 0,
-                    "maximum_value": 500,
+                    "maximum_value": "park_y_max",
+                    "minimum_value": "park_y_min",
                     "enabled": "park_head"
+                },
+                "park_x_max":
+                {
+                    "label": "    Park X Max",
+                    "description": "Hidden value.",
+                    "type": "int",
+                    "value": 0,
+                    "enabled": false
+                },
+                "park_y_max":
+                {
+                    "label": "    Park Y max",
+                    "description": "Hidden value.",
+                    "type": "int",
+                    "value": 0,
+                    "enabled": false
+                },
+                "park_x_min":
+                {
+                    "label": "    Park X Min",
+                    "description": "Hidden value.",
+                    "type": "int",
+                    "value": 0,
+                    "enabled": false
+                },
+                "park_y_min":
+                {
+                    "label": "    Park Y Min",
+                    "description": "Hidden value.",
+                    "type": "int",
+                    "value": 0,
+                    "enabled": false
                 },
                 "m300_add":
                 {
