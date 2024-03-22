@@ -7,7 +7,7 @@
 #     5) Lift Head Parking - adds a park move to the "Lift Head" cooling option for small layers.  The move is to just off the print.  It returns to the print after the G4 dwell is complete.
 #     6) Change Printer Settings - Max Feedrate, Max Accel, Home Offsets, Steps/mm.  (There is no Max for Jerk)
 #     7) Very Cool FanPath - Raise 1mm and follow a zigzag path across the print with just the Layer Cooling Fan running.
-#     8) Disable ABL for small prints.  The user defines 'small' and models that fall below that area on the build plate causes G29 and M420 to be commented out of the StartUp Gcode.
+#     8) Disable ABL for small models.  The user defines 'small' and models that fall below that area on the build plate cause G29 and M420 to be commented out of the StartUp Gcode.  There is also a 'minimum time' option.
 #     9) Gcode Line Numbering - Numbers the lines in the gcode.  A prefix is an option.  (authored by: Slashee the Cow)
 #     10) Debug Gcode File - A debug tool that removes all the extrusions and heating lines from a range of layers or the whole file.  The result is a 'Movement Only' file so users can check a toolpath.
 #     11) One-at-a-Time Final Z - A bug fix that adds a move up to the transit (print MAXZ) height before the ending Gcode.  Prevents a crash if the last print is shorter than others.
@@ -340,20 +340,69 @@ class LittleUtilities_GV(Script):
                     "default_value": false,
                     "enabled": "change_printer_settings and (change_home_offset or change_xYaccel or change_feedrate or change_steps)"
                 },
+                "debugging_tools":
+                {
+                    "label": "Enable Debugging Tools",
+                    "description": "Debug specific scripts.",
+                    "type": "bool",
+                    "default_value": false,
+                    "enabled": true
+                },
                 "add_data_headers":
                 {
-                    "label": "Add Data[?] headers",
+                    "label": "    Add Data[?] headers",
                     "description": "A debugging tool.  Adds comment lines '>>>End of Data[xxx]<<<' to the end of each item in the Data List.",
                     "type": "bool",
-                    "default_value": false
+                    "default_value": false,
+                    "enabled": "debugging_tools"
                 },
                 "add_data_headers_at_start":
                 {
-                    "label": "    At section start",
+                    "label": "        At section start",
                     "description": "When checked the lines will be added to the beginning of a data section.  When un-checked they will be at the end.",
                     "type": "bool",
                     "default_value": true,
-                    "enabled": "add_data_headers"
+                    "enabled": "add_data_headers and debugging_tools"
+                },
+                "debug_file":
+                {
+                    "label": "    Create a debugging file",
+                    "description": "Removes all M commands and extrusions from the layer range specified.  All other layers are deleted.",
+                    "type": "bool",
+                    "default_value": false,
+                    "enabled": "debugging_tools"
+                },
+                "debug_autohome_cmd":
+                {
+                    "label": "        Your Auto-Home cmd",
+                    "description": "Usually G28 but can be different.  Add parameters if required.",
+                    "type": "str",
+                    "default_value": "G28",
+                    "enabled": "debug_file and debugging_tools"
+                },
+                "debug_start_layer":
+                {
+                    "label": "        Start Layer Debug File",
+                    "description": "The first layer to remove the extrusions from.  Prior Layers will be deleted",
+                    "type": "int",
+                    "default_value": "1",
+                    "enabled": "debug_file and debugging_tools"
+                },
+                "debug_end_layer":
+                {
+                    "label": "        End Layer Debug File",
+                    "description": "The last layer to have extrusions removed.  Layers after this one will be deleted.  Enter '-1' for the top layer.",
+                    "type": "int",
+                    "default_value": 25,
+                    "enabled": "debug_file and debugging_tools"
+                },
+                "data_num_and_line_nums":
+                {
+                    "label": "    Add data[item] and line nums",
+                    "description": "Another debug utility that will add ' ;Data: num, Line: lnum' to each line in the file",
+                    "type": "bool",
+                    "default_value": false,
+                    "enabled": "debugging_tools"
                 },
                 "line_numbers":
                 {
@@ -386,53 +435,48 @@ class LittleUtilities_GV(Script):
                     "default_value": false,
                     "enabled": "line_numbers"
                 },
-                "debug_file":
-                {
-                    "label": "Create a debugging file",
-                    "description": "Removes all M commands and extrusions from the layer range specified.  All other layers are deleted.",
-                    "type": "bool",
-                    "default_value": false
-                },
-                "debug_autohome_cmd":
-                {
-                    "label": "    Your Auto-Home cmd",
-                    "description": "Usually G28 but can be different.  Add parameters if required.",
-                    "type": "str",
-                    "default_value": "G28",
-                    "enabled": "debug_file"
-                },
-                "debug_start_layer":
-                {
-                    "label": "    Start Layer Debug File",
-                    "description": "The first layer to remove the extrusions from.  Prior Layers will be deleted",
-                    "type": "int",
-                    "default_value": "1",
-                    "enabled": "debug_file"
-                },
-                "debug_end_layer":
-                {
-                    "label": "    End Layer Debug File",
-                    "description": "The last layer to have extrusions removed.  Layers after this one will be deleted.  Enter '-1' for the top layer.",
-                    "type": "int",
-                    "default_value": 25,
-                    "enabled": "debug_file"
-                },
                 "disable_abl":
                 {
                     "label": "Disable ABL for Small Models",
-                    "description": "When a model takes up less space than entered below, any G29 and M420 lines in the startup will be disabled.",
+                    "description": "When a model takes up less space, or is shorter time than entered below, any G29 and M420 lines in the startup will be disabled.",
                     "type": "bool",
                     "default_value": false
                 },
-                "disable_ABL_min_footprint":
+                "disable_abl_footprint":
                 {
-                    "label": "    Minimum Footprint for ABL",
-                    "description": "FOR SINGLE MODELS ONLY - this disables the StartUp ABL commands for small prints.  Enter the minimum size of the print in square mm's (any skirt/brim/raft will be ignored).  Models that take up less space than this will NOT USE the ABL.",
+                    "label": "    By footprint",
+                    "description": "When a model takes up less space than entered below, any G29 and M420 lines in the startup will be disabled.",
+                    "type": "bool",
+                    "default_value": false,
+                    "enabled": "disable_abl"
+                },
+                "disable_abl_min_footprint":
+                {
+                    "label": "        Min. Footprint for ABL",
+                    "description": "FOR SINGLE MODELS ONLY - this disables the StartUp ABL commands for small prints.  Enter the minimum size of the print in square mm's (any skirt/brim/raft will be ignored).  Models that take up less space than this will NOT USE the ABL.  (If there is more than a single print on the build plate Cura adds the areas together so this would include all models.)",
                     "type": "int",
                     "default_value": 900,
                     "minimum_value": 4,
-                    "unit": "mm²  ",
+                    "unit": "mm²    ",
+                    "enabled": "disable_abl and disable_abl_footprint"
+                },
+                "disable_abl_time":
+                {
+                    "label": "    By print time",
+                    "description": "When a model takes less time to print than entered below, any G29 and M420 lines in the startup will be disabled.",
+                    "type": "bool",
+                    "default_value": false,
                     "enabled": "disable_abl"
+                },
+                "disable_abl_min_time":
+                {
+                    "label": "        Min. time for ABL",
+                    "description": "This disables the StartUp ABL commands for short duration prints.  Enter the minimum time for ABL in minutes.  Models that take less time than this will NOT USE the ABL.",
+                    "type": "int",
+                    "default_value": 20,
+                    "minimum_value": 4,
+                    "unit": "minutes    ",
+                    "enabled": "disable_abl and disable_abl_time"
                 },
                 "final_z":
                 {
@@ -478,20 +522,13 @@ class LittleUtilities_GV(Script):
                     "default_value": "all_speeds",
                     "enabled": "speed_limit_enable"
                 },
-                "custom_script":
-                {
-                    "label": "Your own custom script",
-                    "description": "Open 'LittleUtilities.py' in a text editor, scroll to the bottom, and you can add your own post-processing script.  The script included with this post processor shows a simple message.",
-                    "type": "bool",
-                    "default_value": false
-                },
                 "custom_setting":
                 {
                     "label": "    Custom Setting",
                     "description": "You can use this to get a setting to your custom script.  The current text will be displayed in the message.",
                     "type": "str",
                     "default_value": "Hello from sunny Florida.",
-                    "enabled": "custom_script"
+                    "enabled": false
                 }
             }
         }"""
@@ -503,7 +540,7 @@ class LittleUtilities_GV(Script):
             self._final_z(data)
         if self.getSettingValueByKey("renum_or_revert"):
             self._renumber_layers(data)
-        if self.getSettingValueByKey("add_data_headers"):
+        if self.getSettingValueByKey("add_data_headers") and self.getSettingValueByKey("debugging_tools"):
             self._add_data_header(data)
         if self.getSettingValueByKey("remove_comments"):
             self._remove_comments(data)
@@ -513,18 +550,18 @@ class LittleUtilities_GV(Script):
             self._change_printer_settings(data)
         if self.getSettingValueByKey("very_cool"):
             self._very_cool(data)
-        if self.getSettingValueByKey("disable_ABL"):
-            self._disable_ABL(data)
+        if self.getSettingValueByKey("disable_abl"):
+            self._disable_abl(data)
         if self.getSettingValueByKey("line_numbers"):
             self._line_numbering(data)
-        if self.getSettingValueByKey("debug_file"):
+        if self.getSettingValueByKey("debug_file") and self.getSettingValueByKey("debugging_tools"):
             self._practice_file(data)
         if self.getSettingValueByKey("adjust_temps"):
             self._adjust_temps_per_model(data)
         if self.getSettingValueByKey("speed_limit_enable"):
             self._speed_limits(data)
-        if self.getSettingValueByKey("custom_script"):
-            self._custom_script(data)
+        if self.getSettingValueByKey("data_num_and_line_nums") and self.getSettingValueByKey("debugging_tools"):
+            self._data_num_and_line_nums(data)
         return data
 
     # Add Extruder Ending Gcode-------------------------------------------
@@ -1049,8 +1086,17 @@ class LittleUtilities_GV(Script):
         return
 
     # Disable ABL for small prints
-    def _disable_ABL(self, data:str)->str:
-        min_footprint = int(self.getSettingValueByKey("disable_ABL_min_footprint"))
+    def _disable_abl(self, data:str)->str:
+        disable_abl_footprint = bool(self.getSettingValueByKey("disable_abl_footprint"))
+        disable_abl_time = bool(self.getSettingValueByKey("disable_abl_time"))
+        if disable_abl_footprint:
+            min_footprint = int(self.getSettingValueByKey("disable_abl_min_footprint"))
+        else:
+            min_footprint = 999999999
+        if disable_abl_time:
+            min_print_time = int(self.getSettingValueByKey("disable_abl_min_time")) * 60
+        else:
+            min_print_time = 999999999
         mycura = Application.getInstance().getGlobalContainerStack()
         extruder = mycura.extruderList
         adhesion_extruder_nr = int(mycura.getProperty("adhesion_extruder_nr", "value"))
@@ -1078,6 +1124,8 @@ class LittleUtilities_GV(Script):
         layer = data[0]
         lines = layer.split("\n")
         for line in lines:
+            if line.startswith(";TIME:"):
+                print_time = int(line.split(":")[1])
             if line.startswith(";MINX:") or line.startswith(";PRINT.SIZE.MIN.X:"):
                 min_x = float(line.split(":")[1])
             if line.startswith(";MINY:") or line.startswith(";PRINT.SIZE.MIN.Y:"):
@@ -1090,17 +1138,28 @@ class LittleUtilities_GV(Script):
         x_dim = max_x - min_x - subtract_dim
         y_dim = max_y - min_y - subtract_dim
         print_area = round(x_dim * y_dim, 2)
-        ## Return if the model is over the "min footprint"
-        if print_area > min_footprint:
-            Message(title = "[Little Utilities] Disable ABL", text = "The 'FootPrint' of the model is " + str(round(print_area,0)) + "mm² so ABL <IS ENABLED>.").show()
+        ## If no minimums are set then return with a message
+        if not disable_abl_footprint and not disable_abl_time:
+            Message(title = "[Little Utilities] ABL is ENABLED", text = "No minimums were set so ABL IS ENABLED.").show()
             return
+        ## Should ABL be disabled?
+        please_disable_abl = False
+        if disable_abl_footprint and print_area < min_footprint:
+            please_disable_abl = True
+        if disable_abl_time and print_time < min_print_time:
+            please_disable_abl = True
+        ## If ABL will not be disabled then return with just a message
+        if not please_disable_abl:
+            Message(title = "[Little Utilities] ABL is ENABLED", text = "The print is either large or of long duration so ABL IS ENABLED.").show()
+            return
+        ## If ABL will be disabled then comment out the G29 and M420 and display a message
         else:
             lines = data[1].split("\n")
             for index, line in enumerate(lines):
                 if line.startswith("G29") or line.startswith("M420"):
-                    lines[index] = ";" + line
+                    lines[index] = ";" + line + " Disabled by Little Utilities"
             data[1] = "\n".join(lines)
-            Message(title = "[Little Utilities] Disable ABL", text = "The 'FootPrint' of the model is " + str(round(print_area,0)) + "mm² so ABL <IS DISABLED> for this print.").show()
+            Message(title = "[Little Utilities] ABL is DISABLED", text = "The print is either small or of short duration so ABL IS DISABLED for this print.").show()
         return
 
     # Line Numbering------------------------------------------------------
@@ -1370,9 +1429,13 @@ class LittleUtilities_GV(Script):
             data[num] = "\n".join(layer)
         return
 
-    # Write your own custom script
-    def _custom_script(self, data:str)->str:
-        ## Display a message-----------------------------------------------
-        setting_string = self.getSettingValueByKey("custom_setting")
-        Message(title = "[Little Utilities - Custom Script]", text = "Open LittleUtilities.py in a text editor, scroll down to the bottom, and write your own custom post processor.  Currently the script just shows this message and " + setting_string).show()
+    # debug - add data item and line number within each data item
+    def _data_num_and_line_nums(self, data:str)->str:
+        for layer_index, layer in enumerate(data):
+            lines = layer.split("\n")[:-1]
+            new_lines = []
+            for line_number, line in enumerate(lines):
+                if line_number == 0: line_number = str(line_number) + "000000000000"
+                new_lines.append(f"{line.ljust(55 if layer_index < 2 else 40)}; DATA [{layer_index}], LINE {line_number}")
+            data[layer_index] = "\n".join(new_lines) + "\n"
         return
