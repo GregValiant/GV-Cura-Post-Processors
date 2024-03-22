@@ -1,22 +1,24 @@
 # By GregValiant (Greg Foresi) November 2023
-# This script allows the users of single extruder printers to print Support-Interface with a second material.  It adds filament change pauses (to the selected layers) before and after any 'Support-Interface' sections within the layer.  Be advised that there can be a lot of filament changing going on as there are two pauses for each Interface on each affected layer.  Check your gcode to insure it is correct.  Searching the gcode for 'custom' will find the pauses.
-#  This script works really well with large flat interfaces.  Because horizontal holes have limited contact with the support on any individual layer there can be a lot of pauses and the value of this script falls off as the annoyance factor goes up.
-#  I tried printing a TPU model with both PLA as the interface and PETG as the interface.  TPU seems to stick well to both of them so the testing failed.
+## This script allows the users of single extruder printers to print Support-Interface with a second material.  It adds filament change pauses (to the selected layers) before and after any 'Support-Interface' sections within the layer.  Be advised that there can be a lot of filament changing going on as there are two pauses for each Interface on each affected layer.  Check your gcode to insure it is correct.  Searching the gcode for 'custom' will find the pauses.
+##  This script works really well with large flat interfaces.  Because round horizontal holes have limited contact with the support on any individual layer there can be a lot of pauses and the value of this script falls off as the annoyance factor goes up.
+##  The success of this script depends on the different materials not sticking to each other.  PETG with a PLA interface (or vice-versa) works well.  TPU seems to stick well to both PLA and PETG so something else would need to be used.
 
 # RULES:
+##   This script can be used on 'Floors' but I don't bother.  It can eliminate scarring of the model when removing the interface material.
+##   Suggested parameters:  Air gap between the model and the floor/roof 0.0 with an Interface Density of 100% and the pattern 'Lines'.
 ##   If insufficient material is purged, then the two materials may mix for the first few cm's of model extrusion.  That will affect the layer adhesion for that portion of the print.  It will also affect the color as the interface material might not be the same color as the print material.
-##   Rafts are allowed.  Set the raft "Air Gap" to 0.0 and the Support Bottom Distance to 0.0.  If you try to use this script on the 2 topmost layers of a raft you will get back-to-back filament changes because rafts take up the entire layer and jumping between layers in post process isn't really allowed.  Using a second material for only the top raft layer works well.
-##   If this script is used on the bottom interface then you can set the bottom distance to 0.  When used on a top interface the interface density should be 100% and the "Top Distance" 0.
-##   Multi-extruder printers are allowed but may only have a single extruder enabled (tool change retractions are a problem).
+##   Rafts are allowed.  Set the raft "Air Gap" to 0.0 and the Support Bottom Distance to 0.0.  If you try to use this script on the 2 topmost layers of a raft you will get back-to-back filament changes because rafts take up the entire layer and jumping between layers in post process isn't really allowed.  Using a second material for just the top raft layer works well.
+##   Multi-extruder printers are allowed but may only have a single extruder enabled and it must be T0 (Extruder 1).
 ##   The layer numbers you enter are the only ones searched for "TYPE:SUPPORT-INTERFACE" so be accurate when you pick the "layers of interest".  Checking the output gcode is a really good idea.
 
-##   My normal setup is for the top two interface layers at 100% density and 0 air gap.  75mm of purge seems to be a sufficient for PLA and PETG.  If you purge then there will be a beep and a 2 second wait before the print resumes.  That allows you to grab the string.  My Ender 3 Pro is a bowden printer and 470mm of unload and 370mm of reload works well.  Yours will vary according to the length of the filament path from the extruder to the hot end.
+##   My normal setup is for the top two interface layers at 100% density and 0 air gap.  75mm of purge seems to be a sufficient for PLA and PETG.  If you purge then there will be a beep and a 2 second wait before the print resumes.  That allows you to grab the string.  My bowden printer requires 470mm of unload and 380mm of reload.  Yours will vary according to the length of the filament path from the extruder to the hot end.
 
 
 from ..Script import Script
 from cura.CuraApplication import CuraApplication
 from UM.Message import Message
 import re
+from UM.Logger import Logger
 
 class SuptIntMaterialChange_GV(Script):
 
@@ -31,12 +33,17 @@ class SuptIntMaterialChange_GV(Script):
         self._instance.setProperty("park_y", "maximum_value", machine_depth)
         self._instance.setProperty("model_temp", "value", extruder[0].getProperty("material_print_temperature", "value"))
         self._instance.setProperty("extra_prime_amt", "value", extruder[0].getProperty("retraction_amount", "value"))
-
         if ext_count > 1:
-            Message(title = "[Supt-Interface Material Change]", text = "Only a single extruder can be enabled in order to use this post processor.  The post processor will exit if more than a single extruder is enabled because tool change retractions interfere.").show()
-            return
+            enabled_list = list([mycura.isEnabled for mycura in mycura.extruderList])
+            if int(mycura.getProperty("extruders_enabled_count", "value")) > 1 or str(enabled_list[0]) == "False":
+                Logger.log("w", "[Supt Interface Mat'l Change]: Only T0 may be enabled.  The script will not run.")
+                Message(title = "[Support-Interface Mat'l Change]", text = "Only T0 (Extruder 1) may be enabled for this script to run.").show()
+
         if str(mycura.getProperty("adhesion_type", "value")) == "raft":
             Message(title = "[Supt-Interface Material Change]", text = "When using a raft set the Raft Air Gap to 0.  Use the layer numbers in the Cura preview and the script will make the adjustments.").show()
+
+        if mycura.getProperty("print_sequence", "value") == "one_at_a_time":
+            Message(title = "[Supt-Interface Material Change]", text = "Is not compatible with 'One-at-a-Time' mode.").show()
 
     def getSettingDataString(self):
             return """{
@@ -77,14 +84,6 @@ class SuptIntMaterialChange_GV(Script):
                     "unit": "minutes   ",
                     "enabled": "pause_method == 'g_4'"
                 },
-                "gcode_after_pause":
-                {
-                    "label": "    Gcode after pause",
-                    "description": "Some printers require a buffer after the pause when M25 is used. Typically 6 M105's works well.  Delimit multiple commands with a comma EX: M105,M105,M105",
-                    "type": "str",
-                    "default_value": "M105,M105,M105,M105,M105,M105",
-                    "enabled": "pause_method not in ['marlin','marlin2','griffin','g_4']"
-                },
                 "custom_pause_command":
                 {
                     "label": "    Enter your pause command",
@@ -92,6 +91,14 @@ class SuptIntMaterialChange_GV(Script):
                     "type": "str",
                     "default_value": "",
                     "enabled": "pause_method == 'custom'"
+                },
+                "gcode_after_pause":
+                {
+                    "label": "    Gcode after pause",
+                    "description": "Some printers require a buffer after the pause when M25 is used. Typically 6 M105's works well.  Delimit multiple commands with a comma EX: M105,M105,M105",
+                    "type": "str",
+                    "default_value": "M105,M105,M105,M105,M105,M105",
+                    "enabled": "pause_method not in ['marlin','marlin2','griffin','g_4']"
                 },
                 "layers_of_interest":
                 {
@@ -249,15 +256,14 @@ class SuptIntMaterialChange_GV(Script):
         extruder = mycura.extruderList
         ext_count = int(mycura.getProperty("machine_extruder_count", "value"))
         # Exit if the printer is a multi-extruder and more than 1 tool is enabled
-        ext_enabled = 0
         if ext_count > 1:
             enabled_list = list([mycura.isEnabled for mycura in mycura.extruderList])
-            for num in range(0,len(enabled_list)):
-                if bool(enabled_list[num]):
-                    ext_enabled += 1
-        if ext_enabled > 1:
-            Message(title = "[Supt-Interface Material Change]", text = "Is not compatible with more than a single enabled extruder.").show()
-            data[0] += ";  [Supt-Interface Material Change] Did not run because more than one extruder is enabled.\n"
+            if int(mycura.getProperty("extruders_enabled_count", "value")) > 1 or str(enabled_list[0]) == "False":
+                Logger.log("w", "[Supt Interface Mat'l Change]: Only T0 may be enabled.  The script did not run.")
+                Message(title = "[Support-Interface Mat'l Change]", text = "Only T0 (Extruder 1) may be enabled.  The script did not run.").show()
+                return data
+        if mycura.getProperty("print_sequence", "value") == "one_at_a_time":
+            Message(title = "[Support-Interface Mat'l Change]", text = "Is not compatible with 'One-at-a-Time' mode and did not run.").show()
             return data
 
         # Count the raft layers
@@ -448,36 +454,34 @@ class SuptIntMaterialChange_GV(Script):
         else:
             load_str = ""
 
-        ## Purge Lines
-        purge_str_model = ""
+        ## Purge Lines Model
+        purge_str_model = "M83; Relative extrusion\n"
+        nozzle_size = CuraApplication.getInstance().getGlobalContainerStack().extruderList[0].getProperty("machine_nozzle_size", "value")
+        firmware_retract = bool(CuraApplication.getInstance().getGlobalContainerStack().getProperty("machine_firmware_retract", "value"))
         if purge_amt_model > 0 and enable_purge:
-            nozzle_size = CuraApplication.getInstance().getGlobalContainerStack().extruderList[0].getProperty("machine_nozzle_size", "value")
-            retraction_amount = CuraApplication.getInstance().getGlobalContainerStack().extruderList[0].getProperty("machine_nozzle_size", "value")
-            firmware_retract = bool(CuraApplication.getInstance().getGlobalContainerStack().getProperty("machine_firmware_retract", "value"))
-            purge_str_model = "M83; Relative extrusion\n"
             purge_str_model += "G1 F" + str(round(float(nozzle_size) * 8.333) * 60) + " E" + str(purge_amt_model) + "; Purge\n"
-            if not firmware_retract:
-                purge_str_model += "G1 F" + str(int(retract_speed)) + " E-" + str(retract_dist) + "; Retract\n"
-            else:
-                purge_str_model += "G10; Retract\n"
-            purge_str_model += "M400; Complete all moves\n"
-            purge_str_model += "M300 P250; Beep\n"
-            purge_str_model += "G4 S2; Wait for 2 seconds\n"
+        if not firmware_retract:
+            purge_str_model += "G1 F" + str(int(retract_speed)) + " E-" + str(retract_dist) + "; Retract\n"
+        else:
+            purge_str_model += "G10; Retract\n"
+        purge_str_model += "M400; Complete all moves\n"
+        purge_str_model += "M300 P250; Beep\n"
+        purge_str_model += "G4 S2; Wait for 2 seconds\n"
 
-        purge_str_interface = ""
+        ## Purge Lines Interface
+        purge_str_interface = "M83; Relative extrusion\n"
+        nozzle_size = CuraApplication.getInstance().getGlobalContainerStack().extruderList[0].getProperty("machine_nozzle_size", "value")
+        firmware_retract = bool(CuraApplication.getInstance().getGlobalContainerStack().getProperty("machine_firmware_retract", "value"))
         if purge_amt_interface > 0 and enable_purge:
-            nozzle_size = CuraApplication.getInstance().getGlobalContainerStack().extruderList[0].getProperty("machine_nozzle_size", "value")
-            retraction_amount = CuraApplication.getInstance().getGlobalContainerStack().extruderList[0].getProperty("machine_nozzle_size", "value")
-            firmware_retract = bool(CuraApplication.getInstance().getGlobalContainerStack().getProperty("machine_firmware_retract", "value"))
-            purge_str_interface = "M83; Relative extrusion\n"
             purge_str_interface += "G1 F" + str(round(float(nozzle_size) * 8.333) * 60) + " E" + str(purge_amt_interface) + "; Purge\n"
-            if not firmware_retract:
-                purge_str_interface += "G1 F" + str(int(retract_speed)) + " E-" + str(retract_dist) + "; Retract\n"
-            else:
-                purge_str_interface += "G10; Retract\n"
-            purge_str_interface += "M400; Complete all moves\n"
-            purge_str_interface += "M300 P250; Beep\n"
-            purge_str_interface += "G4 S2; Wait for 2 seconds\n"
+        if not firmware_retract:
+            purge_str_interface += "G1 F" + str(int(retract_speed)) + " E-" + str(retract_dist) + "; Retract\n"
+        else:
+            purge_str_interface += "G10; Retract\n"
+        purge_str_interface += "M400; Complete all moves\n"
+        purge_str_interface += "M300 P250; Beep\n"
+        purge_str_interface += "G4 S2; Wait for 2 seconds\n"
+
 
         ## Put together the preliminary strings for the interface material and model material
         interface_replacement_pre_string_1 = ";TYPE:CUSTOM" + str('-' * 15) + "; Supt-Interface Material Change - Change to Interface Material" + "\n" + m84_line + "\nG91; Relative movement\nM83; Relative extrusion\n"
@@ -541,7 +545,7 @@ class SuptIntMaterialChange_GV(Script):
                 else:
                     start_retract_str = retract_line
                     start_unretract_str = unretract_line
-        
+
                 startout_to_str = "G0 F" + str(speed_travel) + startout_location + "; Return to print\n"
                 startout_final_str = interface_replacement_pre_string_1 + start_retract_str + z_raise + interface_replacement_pre_string_2 + load_str + purge_str_model + startout_to_str + "G91; Relative movement\n" + z_lower + start_unretract_str + start_e_reset_str + flow_rate_str + "G90; Absolute movement\n" + ext_mode_str + ";" + str('-' * 26) + "; End of Material Change"
 
@@ -575,10 +579,10 @@ class SuptIntMaterialChange_GV(Script):
         for back_num in range(index, -1, -1):
             if re.search("G1 F(\d*) E(\d.*)", lines[back_num]) is not None or re.search("G1 F(\d*) E-(\d.*)", lines[back_num]) is not None or "G10" in lines[back_num]:
                 is_retraction = True
-                if e_loc is None:
+                if e_loc is None and " E" in lines[back_num]:
                     e_loc = self.getValue(lines[back_num], "E")
-                    if "G10" in lines[back_num]:
-                        e_loc = "0"
+                if "G10" in lines[back_num]:
+                    e_loc = "0"
                 if ret_x is not None: break
             if lines[back_num].startswith("G0") and " X" in lines[back_num] and " Y" in lines[back_num] and ret_x is None:
                 ret_x = self.getValue(lines[back_num], "X")
@@ -602,19 +606,19 @@ class SuptIntMaterialChange_GV(Script):
                         ## Catch a retraction whether extrusions are Absolute or Relative or whether firmware retraction is enabled.
                         if re.search("G1 F(\d*) E-(\d.*)", lines2[back_num2]) is not None or re.search("G1 F(\d*) E(\d.*)", lines2[back_num2]) is not None or "G10" in lines2[back_num2]:
                             is_retraction = True
-                            if e_loc is None:
+                            if e_loc is None and " E" in lines2[back_num2]:
                                 e_loc = self.getValue(lines2[back_num2], "E")
-                                if "G10" in lines2[back_num2]:
-                                    e_loc = "0"
+                            if "G10" in lines2[back_num2]:
+                                e_loc = "0"
                         elif is_retraction is None and "G11" in lines2[back_num2]:
                             is_retraction = False
                             e_loc = 0
-                        elif re.search("G1 F(\d*) X(\d.*) Y(\d.*) E(\d.*)", lines2[back_num2]) is not None or re.search("G1 X(\d.*) Y(\d.*) E(\d.*)", lines2[back_num2]) is not None:
+                        elif re.search("G1 F(\d*) X(\d.*) Y(\d.*) E(\d.*)", lines2[back_num2]) is not None or re.search("G1 X(\d.*) Y(\d.*) E(\d.*)", lines2[back_num2]) is not None or "G11" in lines2[back_num2]:
                             is_retraction = False
-                            if e_loc is None:
+                            if e_loc is None and " E" in lines2[back_num2]:
                                 e_loc = self.getValue(lines2[back_num2], "E")
-                                if "G11" in lines2[back_num2]:
-                                    e_loc = "0"
+                            if "G11" in lines2[back_num2]:
+                                e_loc = "0"
                     if ret_x is None:
                         if " X" in lines2[back_num2] and " Y" in lines2[back_num2]:
                             ret_x = self.getValue(lines2[back_num2], "X")
